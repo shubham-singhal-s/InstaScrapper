@@ -1,11 +1,9 @@
 from scraper.insta_scraper import Scraper
 
 if __name__ == "__main__":
-    """
-        target_username must fulfill either or both of the below two criteria:
-        -> You must follow that account
-        -> It must be an open account.
-    """
+    # target_username must fulfill either or both of the below two criteria:
+    # -> You must follow that account
+    # -> It must be an open account.
     target_username = [
         ["macrophotography", 50],
         ["macroworld", 10000],
@@ -24,6 +22,9 @@ if __name__ == "__main__":
             scraper = Scraper("ntramy03182021", "yanverbao2021", name[0], name[1])
             # scraper = Scraper("nqbao1993", "Randomint202?", name[0], name[1])
             # scraper = Scraper("briannguyen202", "Randomint202?", name[0], name[1])
-        except:
+        except Exception as e:
             array.append(name)
+            print("Error occured while parsing for tag {}".format(name[0]), e)
             continue
+
+    print("Errors occured for: \n" + "\n".join(array))
