@@ -1,9 +1,10 @@
 """
 Hey Everyone!
-This program can be used to scrape photos from any Instagram account (Offcourse, only if you follow that account or it’s an open account) and write the photo description for each photo to Excel Sheet.
+This program can be used to scrape photos from any Instagram account
+(if the logged in user follows that account or it's an open account).
 """
-__author__ = "Darshan Majithiya"
-__email__ = "darsh2115@gmail.com"
+__author__ = "Darshan Majithiya, Shubham Singhal"
+__email__ = "darsh2115@gmail.com, shubham21197@gmail.com"
 
 import time
 import traceback
@@ -19,18 +20,17 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
 
-# from xlsxwriter import Workbook
-
 
 class Scraper:
-    def initBrowser(self, options):
+    def init_browser(self, options):
         try:
+            # Web driver for selenium. Varies per OS and browser.
             driver = webdriver.Chrome(
                 "chromedriver_windows32/chromedriver.exe", chrome_options=options
-            )  # I'm using linux. You can change it as per your OS.
+            )
             self.main_url = "https://www.instagram.com"
         except Exception as e:
-            print(e)
+            print("Error initialising Selenium", e)
         # check the internet connection and if the home page is fully loaded or not.
         try:
             driver.get(self.main_url)
@@ -47,16 +47,11 @@ class Scraper:
         self.password = password
         self.target_username = target_username
         self.image_list = []
-        self.lastHeight = 0
-        self.base_path = os.path.join(
-            "data", self.target_username
-        )  # change it as per requirement
-        self.imagesData_path = os.path.join(
-            self.base_path, "images"
-        )  # change it as per requirement
-        self.descriptionsData_path = os.path.join(
-            self.base_path, "descriptions"
-        )  # change it as per requirement
+
+        # Get image directories
+        self.base_path = os.path.join("data", self.target_username)
+        self.images_data_path = os.path.join(self.base_path, "images")
+        self.descriptions_data_path = os.path.join(self.base_path, "descriptions")
         self.no_of_posts = nOfPosts
         print(self.no_of_posts)
         options = Options()
@@ -64,7 +59,7 @@ class Scraper:
         options.add_experimental_option("detach", True)
         options.add_experimental_option("excludeSwitches", ["enable-logging"])
 
-        self.driver = self.initBrowser(options)
+        self.driver = self.init_browser(options)
 
         try:
             WebDriverWait(self.driver, 30).until(
@@ -73,23 +68,27 @@ class Scraper:
         except Exception as e:
             print(e)
 
+        # Login and go to requested page
         self.login()
-        # self.close_dialog_box()
         self.open_target_profile()
-        # # check if the directory to store data exists
+
+        # Check if the directory to store data exists
         if not os.path.exists("data"):
             os.mkdir("data")
         if not os.path.exists(self.base_path):
             os.mkdir(self.base_path)
-        if not os.path.exists(self.imagesData_path):
-            os.mkdir(self.imagesData_path)
-        if not os.path.exists(self.descriptionsData_path):
-            os.mkdir(self.descriptionsData_path)
+        if not os.path.exists(self.images_data_path):
+            os.mkdir(self.images_data_path)
+        if not os.path.exists(self.descriptions_data_path):
+            os.mkdir(self.descriptions_data_path)
+
+        # Start downlaod
         self.download_posts()
 
         self.driver.close()
 
     def login(self):
+        # Fill in user details
         try:
             username_input = self.driver.find_element_by_xpath(
                 '//input[@name = "username"]'
@@ -109,39 +108,30 @@ class Scraper:
             sys.exit()
 
         try:
-            time.sleep(1)
+            time.sleep(0.5)
             login_link = self.driver.find_element_by_xpath('//div[text()="Log In"]')
             login_link.click()
         except Exception:
             print("Unable to find the Login button.")
             sys.exit()
 
-        # check if the login page is fully loaded or not.
-
         print("Logging in...")
 
-        # check if the login was successful
+        # Wait for user to log in else throw error
         try:
-            WebDriverWait(self.driver, 10).until(EC.title_is("Instagram"))
-        except Exception:
-            print("Please try again with correct credentials or check your connection.")
+            WebDriverWait(self.driver, 30).until(
+                EC.presence_of_element_located((By.XPATH, '//span[text()="Search"]'))
+            )
+        except Exception as e:
+            print(
+                "Please try again with correct credentials or check your connection.", e
+            )
             sys.exit()
 
         print("Login Successful!")
 
-    def close_dialog_box(self):
-        """ Close the Notification Dialog """
-        try:
-            time.sleep(3)
-            close_btn = self.driver.find_element_by_xpath('//button[text()="Not Now"]')
-            close_btn.click()
-        except Exception:
-            pass
-
     def open_target_profile(self):
-        target_profile_url = (
-            self.main_url + "/explore/tags/" + self.target_username
-        )  # /explore/tags
+        target_profile_url = self.main_url + "/explore/tags/" + self.target_username
         print("Redirecting to {0} profile...".format(self.target_username))
 
         # check if the target user profile is loaded.
@@ -164,7 +154,7 @@ class Scraper:
             )
             sys.exit()
 
-    def extractImages(self):
+    def extract_images(self):
         soup = BeautifulSoup(self.driver.page_source, "lxml")
         all_images = soup.find_all("img", attrs={"style": "object-fit: cover;"})
         for img in all_images:
@@ -172,50 +162,14 @@ class Scraper:
                 self.image_list.append(img)
         print("Loaded {} images.".format(len(self.image_list)))
 
-    def getPageHeight(self):
+    def get_page_height(self):
         return self.driver.execute_script("return document.body.scrollHeight")
-
-    def loadMore(self):
-        """Scroll down and wait till new posts load"""
-        currentHeight = self.getPageHeight()
-
-        waits = 0
-        retries = 0
-
-        # Scroll down to trigger loading of new images
-        if self.lastHeight == self.getPageHeight():
-            self.driver.execute_script(
-                "window.scrollTo(0, document.body.scrollHeight);"
-            )
-        else:
-            return True
-
-        # Wait till new images are loaded
-        while currentHeight == self.getPageHeight():
-            if waits > 30:
-                waits = 0
-                retries += 1
-                self.driver.execute_script(
-                    "window.scrollTo(0, document.body.scrollHeight*0.8);"
-                )
-                if currentHeight == self.getPageHeight():
-                    self.driver.execute_script(
-                        "window.scrollTo(0, document.body.scrollHeight);"
-                    )
-            if retries > 5:
-                print("Page has less than requested images")
-                return False
-            waits += 1
-            sleep(0.2)
-        sleep(0.2)
-
-        return True
 
     def load_fetch_posts(self):
         """Load and fetch target account posts"""
 
         try:
-            self.extractImages()
+            self.extract_images()
 
             # 12 posts loads up when we open the profile
             if self.no_of_posts > 12:
@@ -223,16 +177,30 @@ class Scraper:
                 print("Loading all the posts...")
                 # Every time the page scrolls down we need to get the source code as it is dynamic
                 while len(self.image_list) < self.no_of_posts:
-                    hasMore = self.loadMore()
-                    if not hasMore:
-                        break
-                    self.lastHeight = self.getPageHeight()
+                    current_height = self.get_page_height()
+                    retries = 0
+
+                    # Scroll down to load more content
+                    self.driver.execute_script(
+                        "window.scrollTo(0, document.body.scrollHeight);"
+                    )
+                    sleep(0.5)
+
+                    self.driver.execute_script("window.scrollTo(0, 0);")
+
+                    # Wait till new content loads or quit after 20 seconds of waiting
+                    while current_height == self.get_page_height():
+                        if retries > 100:
+                            print("Page contains less images than requested.")
+                            return
+                        retries += 1
+                        sleep(0.2)
                     # Scroll to the bottom to get images into DOM
                     self.driver.execute_script(
                         "window.scrollTo(0, document.body.scrollHeight);"
                     )
-                    self.extractImages()
                     sleep(0.5)
+                    self.extract_images()
 
         except Exception as e:
             print(
@@ -252,7 +220,7 @@ class Scraper:
         for index, img in enumerate(self.image_list, start=1):
             try:
                 filename = self.target_username + "_" + str(index) + ".jpg"
-                image_path = os.path.join(self.imagesData_path, filename)
+                image_path = os.path.join(self.images_data_path, filename)
                 link = img.get("src")
                 response = requests.get(link, stream=True)
 
@@ -264,4 +232,3 @@ class Scraper:
                 print("Couldn't download image {0}.".format(index))
                 print("Link for image {0} ---> {1}".format(index, link))
         print("Download completed!")
-
