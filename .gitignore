@@ -1,5 +1,7 @@
-/data/
-/__pycache__/
-/.idea/
-/.vscode/
-/scraper/__pycache__/
+data/
+__pycache__/
+/.idea
+/.vscode
+__pycache__/
+data.zip
+chromedriver_*
